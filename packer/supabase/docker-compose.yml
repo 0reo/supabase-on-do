@@ -16,11 +16,11 @@ services:
       TZ: ${TIMEZONE}
       URL: ${DOMAIN}
       VALIDATION: dns
-      SUBDOMAINS: supabase
+      SUBDOMAINS: ${SUBDOMAIN}
       DNSPLUGIN: digitalocean
       ONLY_SUBDOMAINS: true
     volumes:
-      - ./supabase.subdomain.conf:/config/nginx/proxy-confs/supabase.subdomain.conf
+      - ./${SUBDOMAIN}.subdomain.conf:/config/nginx/proxy-confs/${SUBDOMAIN}.subdomain.conf
       - ./digitalocean.ini:/config/dns-conf/digitalocean.ini
       - ./.htpasswd:/config/nginx/.htpasswd
     ports:

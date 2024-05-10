@@ -2,7 +2,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
 
-    server_name supabase.*;
+    server_name ${TF_SUBDOMAIN}.*;
 
     include /config/nginx/ssl.conf;
 

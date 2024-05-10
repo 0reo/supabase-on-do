@@ -115,6 +115,7 @@ locals {
       TF_JWT_SECRET               = "${random_password.jwt.result}",
       TF_ANON_KEY                 = "${jwt_hashed_token.anon.token}",
       TF_SERVICE_ROLE_KEY         = "${jwt_hashed_token.service_role.token}",
+      TF_SUBDOMAIN                = "${var.subdomain}",
       TF_DOMAIN                   = "${var.domain}",
       TF_SITE_URL                 = "${var.site_url}",
       TF_TIMEZONE                 = "${var.timezone}",
@@ -134,6 +135,12 @@ locals {
   )
 
   do_ini = templatefile("${path.module}/files/digitalocean.ini.tftpl", { TF_DIGITALOCEAN_TOKEN = "${var.do_token}" })
+
+  subdomain_conf = templatefile("${path.module}/files/supabase.subdomain.conf.tftpl",
+    {
+      TF_SUBDOMAIN = "${var.subdomain}",
+    }
+  )
 
   htpasswd = templatefile("${path.module}/files/.htpasswd.tftpl",
     {
@@ -167,6 +174,13 @@ locals {
       encoding    = "b64"
       content     = base64encode("${local.do_ini}")
     },
+    {
+      path        = "/root/supabase/${var.subdomain}.subdomain.conf"
+      permissions = "0744"
+      owner       = "root:root"
+      encoding    = "b64"
+      content     = base64encode("${local.subdomain_conf}")
+    },    
     {
       path        = "/root/supabase/.htpasswd"
       permissions = "0644"

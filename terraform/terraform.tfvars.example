@@ -11,6 +11,7 @@ spaces_secret_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ## REQUIRED ##
 region    = "ams3"
 domain    = "example.com"
+subdomain = "supabase"
 timezone  = "Europe/Amsterdam"
 auth_user = "admin"
 site_url  = "app.example.com"
