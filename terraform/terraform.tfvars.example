@@ -10,6 +10,7 @@ spaces_secret_access_key = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 ## REQUIRED ##
 region    = "ams3"
+storage_region    = "ams3"
 domain    = "example.com"
 timezone  = "Europe/Amsterdam"
 auth_user = "admin"

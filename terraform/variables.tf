@@ -43,6 +43,11 @@ variable "region" {
   type        = string
 }
 
+variable "storage_region" {
+  description = "The region where the DO Space will be created."
+  type        = string
+}
+
 variable "domain" {
   description = "Domain name where the Supabase instance is accessible. The final domain will be of the format `supabase.example.com`"
   type        = string

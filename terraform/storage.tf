@@ -6,7 +6,7 @@ resource "random_id" "bucket" {
 
 resource "digitalocean_spaces_bucket" "this" {
   name   = random_id.bucket.hex
-  region = var.region
+  region = var.storage_region
 }
 
 resource "digitalocean_spaces_bucket_policy" "this" {
