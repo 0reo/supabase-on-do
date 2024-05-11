@@ -147,9 +147,12 @@ services:
 
   realtime:
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.10.1
+    image: supabase/realtime:v2.28.32
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:      
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "bash", "-c", "printf \\0 > /dev/tcp/localhost/4000" ]
