@@ -206,9 +206,10 @@ services:
 
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v0.40.4
+    image: supabase/storage-api:v1.0.6
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
         condition: service_healthy
       rest:
         condition: service_started
