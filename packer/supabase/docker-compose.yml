@@ -244,8 +244,11 @@ services:
 
   functions:
     container_name: supabase-edge-functions
-    image: supabase/edge-runtime:v1.5.2
+    image: supabase/edge-runtime:v1.45.2
     restart: unless-stopped
+    depends_on:
+      analytics:
+        condition: service_healthy    
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
@@ -374,6 +377,6 @@ services:
     environment:
       LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
     command: [ "--config", "etc/vector/vector.yml" ]
-    
+
 volumes:
   db-config:            
