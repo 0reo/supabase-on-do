@@ -30,7 +30,8 @@ services:
 
   studio:
     container_name: supabase-studio
-    image: supabase/studio:v1.24.04
+    # analytics currently broken using Supabase GA
+    image: supabase/studio:20240422-5cf8f30
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://'+process.env.HOSTNAME+':3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
