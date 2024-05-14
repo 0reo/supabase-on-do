@@ -11,16 +11,16 @@ services:
     cap_add:
       - NET_ADMIN
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=${TIMEZONE}
-      - URL=${DOMAIN}
-      - VALIDATION=dns
-      - SUBDOMAINS=supabase
-      - DNSPLUGIN=digitalocean
-      - ONLY_SUBDOMAINS=true
+      PUID: 1000
+      PGID: 1000
+      TZ: ${TIMEZONE}
+      URL: ${DOMAIN}
+      VALIDATION: dns
+      SUBDOMAINS: ${SUBDOMAIN}
+      DNSPLUGIN: digitalocean
+      ONLY_SUBDOMAINS: true
     volumes:
-      - ./supabase.subdomain.conf:/config/nginx/proxy-confs/supabase.subdomain.conf
+      - ./${SUBDOMAIN}.subdomain.conf:/config/nginx/proxy-confs/${SUBDOMAIN}.subdomain.conf
       - ./digitalocean.ini:/config/dns-conf/digitalocean.ini
       - ./.htpasswd:/config/nginx/.htpasswd
     ports:
@@ -298,7 +298,7 @@ services:
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@{POSTGRES_DB}:${POSTGRES_PORT}/${POSTGRES_DB}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function. This PR might help: https://github.com/supabase/cli/pull/786
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
     volumes:

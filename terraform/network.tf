@@ -22,7 +22,7 @@ resource "digitalocean_reserved_ip" "this" {
 resource "digitalocean_record" "a_record" {
   domain = var.domain
   type   = "A"
-  name   = "supabase"
+  name   = var.subdomain
   value  = digitalocean_reserved_ip.this.ip_address
 }
 
