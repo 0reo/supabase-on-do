@@ -30,13 +30,17 @@ services:
 
   studio:
     container_name: supabase-studio
-    image: supabase/studio:20230622-d8395eb
+    # analytics currently broken using Supabase GA
+    image: supabase/studio:20240422-5cf8f30
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
+      test: [ "CMD", "node", "-e", "require('http').get('http://'+process.env.HOSTNAME+':3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
       timeout: 5s
       interval: 5s
       retries: 3
+    depends_on:
+      analytics:
+        condition: service_healthy      
     ports:
       - ${STUDIO_PORT}:3000/tcp
     environment:
@@ -51,13 +55,25 @@ services:
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
 
+      LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
+      LOGFLARE_URL: http://analytics:4000
+      NEXT_PUBLIC_ENABLE_LOGS: true
+      # Comment to use Big Query backend for analytics
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      # Uncomment to use Big Query backend for analytics
+      # NEXT_ANALYTICS_BACKEND_PROVIDER: bigquery
+
   kong:
     container_name: supabase-kong
     image: kong:2.8.1
     restart: unless-stopped
+    #entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
     ports:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
+    depends_on:
+      analytics:
+        condition: service_healthy      
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
@@ -72,9 +88,12 @@ services:
 
   auth:
     container_name: supabase-auth
-    image: supabase/gotrue:v2.62.1
+    image: supabase/gotrue:v2.151.0
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:      
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health" ]
@@ -101,6 +120,7 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
 
       GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
       GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM}
       # GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: true
       # GOTRUE_SMTP_MAX_FREQUENCY: 1s
@@ -118,13 +138,31 @@ services:
       GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP}
       GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
       MFA_ENABLED: ${MFA_ENABLED}
+ 
+      # Uncomment to enable custom access token hook. You'll need to create a public.custom_access_token_hook function and grant necessary permissions.
+      # See: https://supabase.com/docs/guides/auth/auth-hooks#hook-custom-access-token for details
+      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED="true"
+      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI="pg-functions://postgres/public/custom_access_token_hook"
+
+      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED="true"
+      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI="pg-functions://postgres/public/mfa_verification_attempt"
+
+      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED="true"
+      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI="pg-functions://postgres/public/password_verification_attempt"
+
+
+
+
 
   rest:
     container_name: supabase-rest
-    image: postgrest/postgrest:v10.1.2
+    image: postgrest/postgrest:v12.0.1
     depends_on:
       db:
         condition: service_healthy
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:        
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
@@ -132,15 +170,29 @@ services:
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
-
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+    command: "postgrest"
+    
   realtime:
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.10.1
+    image: supabase/realtime:v2.28.32
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:      
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "bash", "-c", "printf \\0 > /dev/tcp/localhost/4000" ]
+      test: [ "CMD",
+          "curl",
+          "-sSfL",
+          "--head",
+          "-o",
+          "/dev/null",
+          "-H",
+          "Authorization: Bearer ${ANON_KEY}",
+          "http://localhost:4000/api/tenants/realtime-dev/health" ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -166,16 +218,17 @@ services:
 
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v0.40.4
+    image: supabase/storage-api:v1.0.6
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
         condition: service_healthy
       rest:
         condition: service_started
       imgproxy:
         condition: service_started
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status" ]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://0.0.0.0:5000/status" ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -217,9 +270,12 @@ services:
 
   meta:
     container_name: supabase-meta
-    image: supabase/postgres-meta:v0.66.3
+    image: supabase/postgres-meta:v0.80.0
     depends_on:
       db:
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+      analytics:      
         condition: service_healthy
     restart: unless-stopped
     environment:
@@ -232,8 +288,11 @@ services:
 
   functions:
     container_name: supabase-edge-functions
-    image: supabase/edge-runtime:v1.5.2
+    image: supabase/edge-runtime:v1.45.2
     restart: unless-stopped
+    depends_on:
+      analytics:
+        condition: service_healthy    
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
@@ -242,8 +301,6 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function. This PR might help: https://github.com/supabase/cli/pull/786
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
-    ports:
-      - ${FUNCTIONS_HTTP_PORT}:9000/tcp
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
     command:
@@ -251,14 +308,60 @@ services:
       - --main-service
       - /home/deno/functions/main
 
+  analytics:
+    container_name: supabase-analytics
+    image: supabase/logflare:1.4.0
+    healthcheck:
+      test: [ "CMD", "curl", "http://localhost:4000/health" ]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+    depends_on:
+      db:
+        # Disable this if you are using an external Postgres database
+        condition: service_healthy
+    # Uncomment to use Big Query backend for analytics
+    # volumes:
+    #   - type: bind
+    #     source: ${PWD}/gcloud.json
+    #     target: /opt/app/rel/logflare/bin/gcloud.json
+    #     read_only: true
+    environment:
+      LOGFLARE_NODE_HOST: 127.0.0.1
+      DB_USERNAME: supabase_admin
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_HOSTNAME: ${POSTGRES_HOST}
+      DB_PORT: ${POSTGRES_PORT}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SCHEMA: _analytics
+      LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
+      LOGFLARE_SINGLE_TENANT: true
+      LOGFLARE_SUPABASE_MODE: true
+      LOGFLARE_MIN_CLUSTER_SIZE: 1
+      LOGFLARE_LOG_LEVEL: ${LOGFLARE_LOG_LEVEL}
+
+      # Comment variables to use Big Query backend for analytics
+      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      POSTGRES_BACKEND_SCHEMA: _analytics
+      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
+      # Uncomment to use Big Query backend for analytics
+      # GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
+      # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
+    ports:
+      - 4000:4000
+
   db:
     container_name: supabase-db
-    image: supabase/postgres:15.1.0.90
+    image: supabase/postgres:15.1.1.41
     healthcheck:
       test: pg_isready -U postgres -h localhost
       interval: 5s
       timeout: 5s
       retries: 10
+    depends_on:
+      vector:
+        condition: service_healthy      
     command:
       - postgres
       - -c
@@ -277,10 +380,46 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB}
       POSTGRES_DB: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXPIRY}      
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
       - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
       # Must be superuser to alter reserved role
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      # Initialize the database settings with JWT_SECRET and JWT_EXP
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # PGDATA directory is persisted between restarts      
       - /mnt/supabase_volume/supabase/data/:/var/lib/postgresql/data:Z
+      # Changes required for Analytics support
+      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      # Use named volume to persist pgsodium decryption key between restarts
+      - db-config:/etc/postgresql-custom
+
+  vector:
+    container_name: supabase-vector
+    image: timberio/vector:0.28.1-alpine
+    healthcheck:
+      test:
+        [
+
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://vector:9001/health"
+        ]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    volumes:
+      - ./volumes/logs/vector.yml:/etc/vector/vector.yml:ro
+      - ${DOCKER_SOCKET_LOCATION}:/var/run/docker.sock:ro
+    environment:
+      LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
+    command: [ "--config", "etc/vector/vector.yml" ]
+
+volumes:
+  db-config:            
