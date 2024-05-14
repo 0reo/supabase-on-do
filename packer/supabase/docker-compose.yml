@@ -300,8 +300,6 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@{POSTGRES_DB}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function. This PR might help: https://github.com/supabase/cli/pull/786
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
-    ports:
-      - ${FUNCTIONS_HTTP_PORT}:9000/tcp
     volumes:
       - ./volumes/functions:/home/deno/functions:Z
     command:
