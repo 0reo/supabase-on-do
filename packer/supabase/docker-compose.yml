@@ -1,8 +1,10 @@
 # Usage
-#   Start:          docker compose up -d
-#   Stop:           docker compose down
+#   Start:              docker compose up
+#   With helpers:       docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml up
+#   Stop:               docker compose down
+#   Destroy:            docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
 
-version: "3.8"
+name: supabase
 
 services:
   swag:
@@ -30,19 +32,18 @@ services:
 
   studio:
     container_name: supabase-studio
-    # analytics currently broken using Supabase GA
-    image: supabase/studio:20240422-5cf8f30
+    image: supabase/studio:20250113-83c9420
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "node", "-e", "require('http').get('http://'+process.env.HOSTNAME+':3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" ]
-      timeout: 5s
+      timeout: 10s
       interval: 5s
       retries: 3
-    depends_on:
-      analytics:
-        condition: service_healthy      
     ports:
       - ${STUDIO_PORT}:3000/tcp
+    depends_on:
+      analytics:
+        condition: service_healthy
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -54,6 +55,7 @@ services:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
 
       LOGFLARE_API_KEY: ${LOGFLARE_API_KEY}
       LOGFLARE_URL: http://analytics:4000
@@ -67,33 +69,33 @@ services:
     container_name: supabase-kong
     image: kong:2.8.1
     restart: unless-stopped
-    #entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
     ports:
       - ${KONG_HTTP_PORT}:8000/tcp
       - ${KONG_HTTPS_PORT}:8443/tcp
     depends_on:
       analytics:
-        condition: service_healthy      
+        condition: service_healthy
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
       # https://github.com/supabase/cli/issues/14
       KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    # https://unix.stackexchange.com/a/294837
     volumes:
       # https://github.com/supabase/supabase/issues/12661
-      - ./volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+      - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
 
   auth:
     container_name: supabase-auth
-    image: supabase/gotrue:v2.151.0
+    image: supabase/gotrue:v2.167.0
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
         condition: service_healthy
-      analytics:      
+      analytics:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health" ]
@@ -122,6 +124,10 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP}
       GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
       GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM}
+
+      # Uncomment to bypass nonce check in ID Token flow. Commonly set to true when using Google Sign In on mobile.
+      # GOTRUE_EXTERNAL_SKIP_NONCE_CHECK: true
+
       # GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: true
       # GOTRUE_SMTP_MAX_FREQUENCY: 1s
       GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
@@ -140,30 +146,36 @@ services:
       MFA_ENABLED: ${MFA_ENABLED}
 
       GOTRUE_SECURITY_MANUAL_LINKING_ENABLED: ${MANUAL_LINKING_ENABLE}
- 
-      # Uncomment to enable custom access token hook. You'll need to create a public.custom_access_token_hook function and grant necessary permissions.
-      # See: https://supabase.com/docs/guides/auth/auth-hooks#hook-custom-access-token for details
-      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED="true"
-      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI="pg-functions://postgres/public/custom_access_token_hook"
+      # Uncomment to enable custom access token hook. 
+      # Please see: https://supabase.com/docs/guides/auth/auth-hooks for full list of hooks and additional details about custom_access_token_hook
+      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_ENABLED: "true"
+      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_URI: "pg-functions://postgres/public/custom_access_token_hook"
+      # GOTRUE_HOOK_CUSTOM_ACCESS_TOKEN_SECRETS: "<standard-base64-secret>"
 
-      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED="true"
-      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI="pg-functions://postgres/public/mfa_verification_attempt"
+      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_ENABLED: "true"
+      # GOTRUE_HOOK_MFA_VERIFICATION_ATTEMPT_URI: "pg-functions://postgres/public/mfa_verification_attempt"
 
-      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED="true"
-      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI="pg-functions://postgres/public/password_verification_attempt"
+      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_ENABLED: "true"
+      # GOTRUE_HOOK_PASSWORD_VERIFICATION_ATTEMPT_URI: "pg-functions://postgres/public/password_verification_attempt"
 
+      # GOTRUE_HOOK_SEND_SMS_ENABLED: "false"
+      # GOTRUE_HOOK_SEND_SMS_URI: "pg-functions://postgres/public/custom_access_token_hook"
+      # GOTRUE_HOOK_SEND_SMS_SECRETS: "v1,whsec_VGhpcyBpcyBhbiBleGFtcGxlIG9mIGEgc2hvcnRlciBCYXNlNjQgc3RyaW5n"
 
+      # GOTRUE_HOOK_SEND_EMAIL_ENABLED: "false"
+      # GOTRUE_HOOK_SEND_EMAIL_URI: "http://host.docker.internal:54321/functions/v1/email_sender"
+      # GOTRUE_HOOK_SEND_EMAIL_SECRETS: "v1,whsec_VGhpcyBpcyBhbiBleGFtcGxlIG9mIGEgc2hvcnRlciBCYXNlNjQgc3RyaW5n"
 
 
 
   rest:
     container_name: supabase-rest
-    image: postgrest/postgrest:v12.0.1
+    image: postgrest/postgrest:v12.2.0
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
         condition: service_healthy
-      analytics:        
+      analytics:
         condition: service_healthy
     restart: unless-stopped
     environment:
@@ -175,18 +187,21 @@ services:
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command: "postgrest"
-    
+
   realtime:
+    # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
     container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.28.32
+    image: supabase/realtime:v2.34.7
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
         condition: service_healthy
-      analytics:      
+      analytics:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD",
+      test:
+        [
+          "CMD",
           "curl",
           "-sSfL",
           "--head",
@@ -194,7 +209,8 @@ services:
           "/dev/null",
           "-H",
           "Authorization: Bearer ${ANON_KEY}",
-          "http://localhost:4000/api/tenants/realtime-dev/health" ]
+          "http://localhost:4000/api/tenants/realtime-dev/health"
+        ]
       timeout: 5s
       interval: 5s
       retries: 3
@@ -209,18 +225,18 @@ services:
       DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
       DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
-      FLY_ALLOC_ID: fly123
-      FLY_APP_NAME: realtime
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       ERL_AFLAGS: -proto_dist inet_tcp
-      ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
-    command: >
-      sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: true
+      RUN_JANITOR: true
 
+  # might have issues? https://github.com/supabase/supabase/pull/17779
   storage:
     container_name: supabase-storage
-    image: supabase/storage-api:v1.0.6
+    image: supabase/storage-api:v1.14.5
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
@@ -242,6 +258,9 @@ services:
       PGRST_JWT_SECRET: ${JWT_SECRET}
       DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       FILE_SIZE_LIMIT: 52428800
+      GLOBAL_S3_PROTOCOL: http
+      GLOBAL_S3_FORCE_PATH_STYLE: true
+      AWS_DEFAULT_REGION: ${SPACES_REGION}
       STORAGE_BACKEND: s3
       FILE_STORAGE_BACKEND_PATH: ./data
       TENANT_ID: stub
@@ -256,7 +275,8 @@ services:
 
   imgproxy:
     container_name: supabase-imgproxy
-    image: darthsim/imgproxy:v3.13
+    image: darthsim/imgproxy:v3.8.0
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "imgproxy", "health" ]
       timeout: 5s
@@ -272,12 +292,12 @@ services:
 
   meta:
     container_name: supabase-meta
-    image: supabase/postgres-meta:v0.80.0
+    image: supabase/postgres-meta:v0.84.2
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
         condition: service_healthy
-      analytics:      
+      analytics:
         condition: service_healthy
     restart: unless-stopped
     environment:
@@ -290,11 +310,11 @@ services:
 
   functions:
     container_name: supabase-edge-functions
-    image: supabase/edge-runtime:v1.45.2
+    image: supabase/edge-runtime:v1.67.0
     restart: unless-stopped
     depends_on:
       analytics:
-        condition: service_healthy    
+        condition: service_healthy
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
@@ -353,9 +373,10 @@ services:
     ports:
       - 4000:4000
 
+  # Comment out everything below this point if you are using an external Postgres database
   db:
     container_name: supabase-db
-    image: supabase/postgres:15.1.1.41
+    image: supabase/postgres:15.8.1.020
     healthcheck:
       test: pg_isready -U postgres -h localhost
       interval: 5s
@@ -363,7 +384,7 @@ services:
       retries: 10
     depends_on:
       vector:
-        condition: service_healthy      
+        condition: service_healthy
     command:
       - postgres
       - -c
@@ -383,7 +404,7 @@ services:
       PGDATABASE: ${POSTGRES_DB}
       POSTGRES_DB: ${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXP: ${JWT_EXPIRY}      
+      JWT_EXP: ${JWT_EXPIRY}
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
@@ -392,20 +413,20 @@ services:
       - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
       # Initialize the database settings with JWT_SECRET and JWT_EXP
       - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
-      # PGDATA directory is persisted between restarts      
+      # PGDATA directory is persisted between restarts
       - /mnt/supabase_volume/supabase/data/:/var/lib/postgresql/data:Z
       # Changes required for Analytics support
       - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
-      - db-config:/etc/postgresql-custom
+      - db-config:/etc/postgresql-custom      
 
   vector:
     container_name: supabase-vector
     image: timberio/vector:0.28.1-alpine
+    restart: unless-stopped
     healthcheck:
       test:
         [
-
           "CMD",
           "wget",
           "--no-verbose",
@@ -424,4 +445,4 @@ services:
     command: [ "--config", "etc/vector/vector.yml" ]
 
 volumes:
-  db-config:            
+  db-config:
