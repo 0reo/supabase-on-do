@@ -131,6 +131,10 @@ locals {
       TF_SMTP_USER                = "${var.smtp_user}",
       TF_SMTP_PASS                = "${sendgrid_api_key.this.api_key}",
       TF_SMTP_SENDER_NAME         = "${local.smtp_sender_name}",
+      TF_GOOGLE_ENABLED           = "${var.auth_services["google"].ENABLED}",
+      TF_GOOGLE_CLIENT_ID         = "${var.auth_services["google"].CLIENT_ID}",
+      TF_GOOGLE_SECRET            = "${var.auth_services["google"].SECRET}",
+      TF_GOOGLE_REDIRECT_URI      = "${var.auth_services["google"].REDIRECT_URI}",
       TF_DEFAULT_ORGANIZATION     = "${var.studio_org}",
       TF_DEFAULT_PROJECT          = "${var.studio_project}",
       TF_FUNCTIONS_ENV            = "${var.functions_env}"

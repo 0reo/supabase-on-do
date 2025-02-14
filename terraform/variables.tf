@@ -256,3 +256,26 @@ variable "functions_env" {
   type = string
   default = ".env"
 }
+variable "auth_service_keys" {
+  description = "List of auth services"
+  type        = list(string)
+  default     = ["google", "apple", "facebook"]
+}
+
+variable "auth_services" {
+  description = "Auth services fields"
+  type        = map(object({
+    ENABLED = bool
+    CLIENT_ID = string
+    SECRET = string
+    REDIRECT_URI = string
+  }))
+  default     = {
+    google = {
+      ENABLED = false
+      CLIENT_ID = "XXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.apps.googleusercontent.com"
+      SECRET = "GOCSPX-XXXXX_XXXXXXXXXX_XXXXXXXXXX"
+      REDIRECT_URI = "http://localhost:8081/callback"
+    }
+  }
+}

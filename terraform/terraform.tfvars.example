@@ -47,3 +47,17 @@ smtp_country    = "Company Country"
 # smtp_sender_reply_to = ""
 # smtp_nickname        = ""
 # functions_env = ""
+# auth_services = {
+#     "[google]"= {
+#         ENABLED = false,
+#         CLIENT_ID = "",
+#         SECRET = "",
+#         REDIRECT_URI = "",
+#     },
+#     "[apple]"= {
+#         ENABLED = false
+#         CLIENT_ID = ""
+#         SECRET = ""
+#         REDIRECT_URI = "",
+#     },
+# }
