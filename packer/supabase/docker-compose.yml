@@ -159,10 +159,10 @@ services:
     image: postgrest/postgrest:v12.0.1
     depends_on:
       db:
-        condition: service_healthy
         # Disable this if you are using an external Postgres database
         condition: service_healthy
       analytics:        
+        condition: service_healthy
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
