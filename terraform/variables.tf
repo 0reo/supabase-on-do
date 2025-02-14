@@ -237,3 +237,9 @@ variable "smtp_reply_to_name" {
   type        = string
   default     = ""
 }
+
+variable "functions_env" {
+  description = "Path to .env file for supabase edge functions"
+  type = string
+  default = ".env"
+}
