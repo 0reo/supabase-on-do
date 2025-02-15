@@ -1,10 +1,10 @@
 terraform {
-  required_version = "~> 1.5.1"
+  required_version = "~> 1.8.2"
 
   required_providers {
     digitalocean = {
       source  = "digitalocean/digitalocean"
-      version = "~> 2.25.0"
+      version = "~> 2.38.0"
     }
     cloudinit = {
       source  = "hashicorp/cloudinit"
