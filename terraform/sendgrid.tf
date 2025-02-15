@@ -80,6 +80,7 @@ resource "digitalocean_record" "link_brand_1" {
 resource "sendgrid_api_key" "this" {
   name = "supabase-api-key"
   scopes = [
-    "mail.send"
+    "mail.send",
+    "2fa_exempt"
   ]
 }
