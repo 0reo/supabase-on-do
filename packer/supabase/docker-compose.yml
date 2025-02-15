@@ -15,12 +15,12 @@ services:
       PGID: 1000
       TZ: ${TIMEZONE}
       URL: ${DOMAIN}
-      VALIDATION: dns
       SUBDOMAINS: ${SUBDOMAIN}
+      VALIDATION: dns
       DNSPLUGIN: digitalocean
       ONLY_SUBDOMAINS: true
     volumes:
-      - ./${SUBDOMAIN}.subdomain.conf:/config/nginx/proxy-confs/${SUBDOMAIN}.subdomain.conf
+      - ./${SUBDOMAIN}.${DOMAIN}.conf:/config/nginx/proxy-confs/${SUBDOMAIN}.${DOMAIN}.conf
       - ./digitalocean.ini:/config/dns-conf/digitalocean.ini
       - ./.htpasswd:/config/nginx/.htpasswd
     ports:
