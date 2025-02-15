@@ -1,3 +1,16 @@
+variable "dashboard_username" {
+  description = "Default username for dashboard login"
+  type        = string
+  default     = "supabase"
+}
+
+variable "dashboard_password" {
+  description = "Default pasword for dashboard login"
+  type        = string
+  default     = "this_password_is_insecure_and_should_be_updated"
+  sensitive   = true
+}
+
 # You can also set DIGITALOCEAN_TOKEN env variable
 # Set the variable value in *.tfvars file or use the -var="do_token=..." CLI option
 variable "do_token" {

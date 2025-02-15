@@ -115,6 +115,8 @@ locals {
       TF_JWT_SECRET               = "${random_password.jwt.result}",
       TF_ANON_KEY                 = "${jwt_hashed_token.anon.token}",
       TF_SERVICE_ROLE_KEY         = "${jwt_hashed_token.service_role.token}",
+      TF_DASHBOARD_USERNAME       = "${var.dashboard_username}",
+      TF_DASHBOARD_PASSWORD       = "${var.dashboard_password}",
       TF_SUBDOMAIN                = "${var.subdomain}",
       TF_DOMAIN                   = "${var.domain}",
       TF_SITE_URL                 = "${var.site_url}",
@@ -154,6 +156,8 @@ locals {
     {
       TF_ANON_KEY         = "${jwt_hashed_token.anon.token}",
       TF_SERVICE_ROLE_KEY = "${jwt_hashed_token.service_role.token}",
+      TF_DASHBOARD_USERNAME       = "${var.dashboard_username}",
+      TF_DASHBOARD_PASSWORD       = "${var.dashboard_password}",      
     }
   )
 
