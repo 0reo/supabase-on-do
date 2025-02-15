@@ -41,6 +41,12 @@ resource "digitalocean_firewall" "this" {
       source_addresses = inbound_rule.value.source_addresses
     }
   }
+  
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "22"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
 
   inbound_rule {
     protocol         = "tcp"
@@ -56,13 +62,13 @@ resource "digitalocean_firewall" "this" {
 
   outbound_rule {
     protocol              = "tcp"
-    port_range            = "1-65535"
+    port_range            = "all"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
   outbound_rule {
     protocol              = "udp"
-    port_range            = "1-65535"
+    port_range            = "all"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 
