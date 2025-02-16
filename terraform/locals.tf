@@ -175,7 +175,7 @@ locals {
       content     = base64encode("${local.do_ini}")
     },
     {
-      path        = "/root/supabase/${var.subdomain}.${var.domain}.conf"
+      path        = "/root/supabase/${var.subdomain}.subdomain.conf"
       permissions = "0744"
       owner       = "root:root"
       encoding    = "b64"
